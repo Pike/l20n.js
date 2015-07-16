@@ -24,16 +24,33 @@ export default {
   getResource: function() {
     let resource = new AST.Resource();
     resource.setPosition(0, this._length);
-    resource._errors = [];
 
     this.getWS();
+    let junk = null;
+    resource._errors = [];
     while (this._index < this._length) {
       try {
-        resource.body.push(this.getEntry());
+        let entry = this.getEntry();
+        if (junk) {
+          resource._errors.push(this.parseError(junk));
+          resource.body.push(junk);
+          junk = null;
+        }
+        resource.body.push(entry);
       } catch (e) {
         if (e instanceof L10nError) {
-          resource._errors.push(e);
-          resource.body.push(this.getJunkEntry());
+          var currentJunk = this.getJunkEntry();
+          if (junk) {
+            // glue current JunkEntry and previous together
+            junk.content += currentJunk.content;
+            if (junk._pos) {
+              junk._pos.end = currentJunk._pos.end;
+            }
+          }
+          else {
+            // or just push the current junk node
+            junk = currentJunk;
+          }
         } else {
           throw e;
         }
@@ -42,8 +59,28 @@ export default {
         this.getWS();
       }
     }
+    if (junk) {
+      resource._errors.push(this.parseError(junk));
+      resource.body.push(junk);
+      junk = null;
+    }
 
     return resource;
+  },
+
+  parseError: function(junk) {
+    const that = Object.create(this);
+    that._source = junk.content;
+    that._index = 0;
+    that._length = junk.content.length;
+    try {
+      that.getEntry();
+    } catch (e) {
+      if (junk._pos) {
+        e._pos.start += junk._pos.start;
+      }
+      return e;
+    }
   },
 
   getEntry: function() {
@@ -468,7 +505,7 @@ export default {
   },
 
   getJunkEntry: function() {
-    const pos = this._index;
+    const pos = this._curEntryStart + 1;
     let nextEntity = this._source.indexOf('<', pos);
     let nextComment = this._source.indexOf('/*', pos);
 
