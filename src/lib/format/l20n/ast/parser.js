@@ -55,16 +55,15 @@ export default {
 
     // now that we parsed the whole file and have all JunkEntries
     // glued together, let's run through them and create error messages
+    const that = Object.create(this);  // used as this for junk parsing
     resource._errors = resource.body.filter(function(node) {
       return node instanceof AST.JunkEntry;
     }).map(function(node) {
-      // extend this for just the junk content
-      const that = Object.create(exports.default);
       that._source = node.content;
       that._index = 0;
       that._length = node.content.length;
       try {
-        exports.default.getEntry.call(that);
+        that.getEntry();
       } catch (e) {
         if (node._pos) {
           e._pos.start += node._pos.start;
