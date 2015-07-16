@@ -24,7 +24,6 @@ export default {
   getResource: function() {
     let resource = new AST.Resource();
     resource.setPosition(0, this._length);
-    resource._errors = [];
 
     this.getWS();
     while (this._index < this._length) {
@@ -32,8 +31,19 @@ export default {
         resource.body.push(this.getEntry());
       } catch (e) {
         if (e instanceof L10nError) {
-          resource._errors.push(e);
-          resource.body.push(this.getJunkEntry());
+          var currentJunk = this.getJunkEntry();
+          var previous = resource.body[resource.body.length - 1];
+          if (previous instanceof AST.JunkEntry) {
+            // glue adjacent JunkEntries together
+            previous.content += currentJunk.content;
+            if (previous._pos) {
+              previous._pos.end = currentJunk._pos.end;
+            }
+          }
+          else {
+            // or just push the current junk node
+            resource.body.push(currentJunk);
+          }
         } else {
           throw e;
         }
@@ -42,6 +52,26 @@ export default {
         this.getWS();
       }
     }
+
+    // now that we parsed the whole file and have all JunkEntries
+    // glued together, let's run through them and create error messages
+    resource._errors = resource.body.filter(function(node) {
+      return node instanceof AST.JunkEntry;
+    }).map(function(node) {
+      // extend this for just the junk content
+      const that = Object.create(exports.default);
+      that._source = node.content;
+      that._index = 0;
+      that._length = node.content.length;
+      try {
+        exports.default.getEntry.call(that);
+      } catch (e) {
+        if (node._pos) {
+          e._pos.start += node._pos.start;
+        }
+        return e;
+      }
+    });
 
     return resource;
   },
@@ -468,7 +498,7 @@ export default {
   },
 
   getJunkEntry: function() {
-    const pos = this._index;
+    const pos = this._curEntryStart + 1;
     let nextEntity = this._source.indexOf('<', pos);
     let nextComment = this._source.indexOf('/*', pos);
 
