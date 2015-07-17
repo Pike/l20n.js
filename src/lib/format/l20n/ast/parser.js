@@ -26,11 +26,13 @@ export default {
     resource.setPosition(0, this._length);
 
     this.getWS();
+    let foundJunk = false;
     while (this._index < this._length) {
       try {
         resource.body.push(this.getEntry());
       } catch (e) {
         if (e instanceof L10nError) {
+          foundJunk = true;
           var currentJunk = this.getJunkEntry();
           var previous = resource.body[resource.body.length - 1];
           if (previous instanceof AST.JunkEntry) {
@@ -55,6 +57,11 @@ export default {
 
     // now that we parsed the whole file and have all JunkEntries
     // glued together, let's run through them and create error messages
+    // exit early if we don't need that
+    if (!foundJunk) {
+      resource._errors = [];
+      return resource;
+    }
     const that = Object.create(this);  // used as this for junk parsing
     resource._errors = resource.body.filter(function(node) {
       return node instanceof AST.JunkEntry;
