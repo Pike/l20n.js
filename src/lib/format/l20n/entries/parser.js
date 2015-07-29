@@ -8,6 +8,7 @@ export default {
   parse: function(emit, string) {
     this._source = string;
     this._index = 0;
+    this._curEntryStart = 0;
     this._length = string.length;
     this.entries = Object.create(null);
     this.emit = emit;
@@ -17,16 +18,23 @@ export default {
 
   getResource: function() {
     this.getWS();
+    let error = null;
     while (this._index < this._length) {
       try {
         this.getEntry();
+        if (error) {
+          if (this.emit) {
+            this.emit(error);
+          }
+          else {
+            throw error;
+          }
+        }
       } catch (e) {
         if (e instanceof L10nError) {
           // we want to recover, but we don't need it in entries
           this.getJunkEntry();
-          if (!this.emit) {
-            throw e;
-          }
+          error = e;
         } else {
           throw e;
         }
@@ -36,11 +44,14 @@ export default {
         this.getWS();
       }
     }
-
+    if (error && !this.emit) {
+      throw error;
+    }
     return this.entries;
   },
 
   getEntry: function() {
+    this._curEntryStart = this._index;
     if (this._source[this._index] === '<') {
       ++this._index;
       const id = this.getIdentifier();
@@ -492,7 +503,7 @@ export default {
   },
 
   error: function(message, type = 'parsererror') {
-    const pos = this._index;
+    const pos = this._curEntryStart + 1;
 
     let start = this._source.lastIndexOf('<', pos - 1);
     const lastClose = this._source.lastIndexOf('>', pos - 1);
@@ -501,9 +512,6 @@ export default {
 
     const msg = message + ' at pos ' + pos + ': `' + context + '`';
     const err = new L10nError(msg);
-    if (this.emit) {
-      this.emit(type, err);
-    }
     return err;
   },
 };
