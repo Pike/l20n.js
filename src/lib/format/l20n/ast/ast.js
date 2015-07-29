@@ -8,6 +8,16 @@ class Node {
   setPosition(start, end) {
     this._pos = {start, end};
   }
+
+  containsPosition(pos) {
+    if (!this._pos) {
+      return false;
+    }
+    if (pos.start < this._pos.start) {
+      return false;
+    }
+    return this._pos.end >= (pos.end || pos.start);
+  }
 }
 
 class Entry extends Node {

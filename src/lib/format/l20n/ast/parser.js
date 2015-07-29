@@ -26,14 +26,15 @@ export default {
     resource.setPosition(0, this._length);
 
     this.getWS();
-    let junk = null;
+    let junk = null, error = null;
     resource._errors = [];
     while (this._index < this._length) {
       try {
         let entry = this.getEntry();
         if (junk) {
-          resource._errors.push(this.parseError(junk));
+          resource._errors.push(error || this.parseError(junk));
           resource.body.push(junk);
+          error = null;
           junk = null;
         }
         resource.body.push(entry);
@@ -43,13 +44,17 @@ export default {
           if (junk) {
             // glue current JunkEntry and previous together
             junk.content += currentJunk.content;
-            if (junk._pos) {
-              junk._pos.end = currentJunk._pos.end;
-            }
+            junk._pos.end = currentJunk._pos.end;
+            // also, we'll need to reparse the JunkEntry for the correct error
+            error = null;
           }
           else {
             // or just push the current junk node
             junk = currentJunk;
+            if (junk.containsPosition(e._pos)) {
+              // we found an error that's useful
+              error = e;
+            }
           }
         } else {
           throw e;
@@ -60,7 +65,7 @@ export default {
       }
     }
     if (junk) {
-      resource._errors.push(this.parseError(junk));
+      resource._errors.push(error || this.parseError(junk));
       resource.body.push(junk);
       junk = null;
     }
@@ -76,9 +81,7 @@ export default {
     try {
       that.getEntry();
     } catch (e) {
-      if (junk._pos) {
-        e._pos.start += junk._pos.start;
-      }
+      e._pos.start += junk._pos.start;
       return e;
     }
   },
@@ -522,9 +525,8 @@ export default {
 
     const junk = new AST.JunkEntry(
       this._source.slice(this._curEntryStart, nextEntry));
-    if (this._config.pos) {
-      junk._pos = {start: this._curEntryStart, end: nextEntry};
-    }
+    // we like to know the positiion of our JunkEntry always
+    junk._pos = {start: this._curEntryStart, end: nextEntry};
     return junk;
   }
 };
