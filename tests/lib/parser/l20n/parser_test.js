@@ -45,6 +45,17 @@ describe('L20n Parser', function() {
           });
         }
       }
+      for (var i in strings) {
+        /* jshint -W083 */
+        if (strings.hasOwnProperty(i)) {
+          var errors = [];
+          var entries = parse(function(e) {
+            errors.push(e);
+          }, '<pre "value">\n' + strings[i] + '<post "VALUE">');
+          assert.strictEqual(entries.pre, 'value', strings[i]);
+          assert.strictEqual(entries.post, 'VALUE', strings[i]);
+        }
+      }
     });
   });
 
