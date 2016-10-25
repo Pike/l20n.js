@@ -17,8 +17,8 @@ Localization
     The main l20n.js class responsible for language negotiation, resource 
     loading and the fallback strategy.
 
-LocalizationObserver
-    The manager class used to bind to the host environment.
+DOMLocalization
+    The subclass of Localization used to bind to a DOM environment.
 
 Each layer has different external dependencies and is intended to tie better 
 into the host and client environments.  In addition to the above three layers 
@@ -50,20 +50,20 @@ libraries needing access to internationalized data.
     arguments passed in by the developer and some more logic if needed.
 
 
-Entity
+Message
 ------
 
-A single localization unit in ``MessageContext`` is called an entity.  An entity 
+A single localization unit in ``MessageContext`` is a message.  A message 
 has an identifier, a value and traits.
 
 id
-    The unique identifier of the entity.
+    The unique identifier of the message.
 
 value
-    The entity's value. It may be null.
+    The message's value. It may be null.
 
 traits
-    A list of key-value pairs that can be providing additional data for the entity like
+    A list of key-value pairs that can be providing additional data for the message like
     attributes or variants. It may be empty.
 
 Entities are encoded in a source format named FTL. l20n.js has two FTL parsers.
@@ -153,7 +153,7 @@ work-horse of l20n.js.
 
 In Web-like runtimes the ``Localization`` API is fully asynchronous.  This 
 allows for loading fallback resources lazily in case of errors in the first 
-language.
+language, without blocking the JavaScript execution on IO.
 
 The ``Localization`` class can be thought of as a multi-lingual, asynchronous 
 wrapper on top of multiple ``MessageContext`` instances which handles lazy-IO 
@@ -207,30 +207,31 @@ Example::
   localization.formatValue('hello-world').then(alert);
 
 
-The Localization Observer API
-=============================
+The DOMLocalization API
+=======================
 
-The ``LocalizationObserver`` class binds ``Localization`` objects to the host 
-environment and provides environment-specific methods to localize content.  
-Each environment will have its own ``LocalizationObserver`` class.
+The ``DOMLocalization`` subclasses ``Localization`` to the host 
+environment and provides environment-specific methods to localize DOM content.  
+Other environments will have their own subclasses of ``Localization`` to
+provide bindings.
 
-For instance, in Web-like runtimes the ``LocalizationObserver`` class has 
+The ``DOMLocalization`` class has 
 methods to localize DOM elements and fragments and uses the 
 ``MutationObserver`` API to monitor the DOM for changes to localizable nodes.  
 It is exposed as ``document.l10n``.
 
-The ``LocalizationObserver`` class implements the iteration protocol to serve 
+The ``DOMLocalization`` class also implements the iteration protocol to serve 
 as a collection of ``Localization`` instances which registered with it.
 
-By default the runtime code will create a default ``Localization`` instance 
-called ``main``.  XBL buildings and Web Components can create and register more 
-``Localization`` instances and ask the ``LocalizationObserver`` to observe
+By default the runtime code will use the ``Localization`` part of the
+``DOMLocalization``.  XBL buildings and Web Components can create and register more 
+``Localization`` instances and ask the ``DOMLocalization`` to observe
 their anonymous and shadow DOM trees respectively.
 
 Example::
 
-  // The LocalizationObserver is created early on.
-  document.l10n = new LocalizationObserver();
+  // The DOMLocalization is created early on.
+  document.l10n = new DOMLocalization();
 
   // Create a special-purpose Localization instance.
   const extra = new Localization(requestBundles, createContext);
@@ -239,7 +240,7 @@ Example::
   document.l10n.observeRoot(document.querySelector('#extra-content', extra);
   document.l10n.translateAllRoots();
 
-In Web-like runtimes the ``LocalizationObserver`` provides the methods to 
+The ``DOMLocalization`` provides the methods to 
 localize DOM fragments and elements::
 
   document.l10n.translateFragment(node).then(…);
